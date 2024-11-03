@@ -1,0 +1,2 @@
+# adatbazisszerverek_GDE
+adatbazisszerverek_GDE
