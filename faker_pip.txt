@@ -1,0 +1,109 @@
+import psycopg2
+from psycopg2 import sql, errors
+from psycopg2.errors import UniqueViolation
+from faker import Faker
+import random
+
+fake = Faker()
+
+# Kapcsolódás az adatbázishoz
+conn = psycopg2.connect(
+    dbname="online_bookstore",
+    user="postgres",
+    password="postgres",
+    host="localhost"
+)
+cur = conn.cursor()
+
+try:
+    # Authors beszúrása
+    for _ in range(500):
+        name = fake.name()
+        cur.execute("INSERT INTO authors (name) VALUES (%s)", (name,))
+
+    # Books beszúrása
+    book_data = []
+    for _ in range(1000):
+        title = fake.sentence(nb_words=3)
+        price = round(random.uniform(1000, 10000), 2)
+        stock_quantity = random.randint(1, 500)
+        cur.execute("INSERT INTO books (title, price, stock_quantity) VALUES (%s, %s, %s)", (title, price, stock_quantity))
+        cur.execute("SELECT book_id FROM books WHERE title = %s AND price = %s", (title, price))
+        book_id = cur.fetchone()[0]
+        book_data.append(book_id)
+
+    # Customers beszúrása
+    cities = ["Budapest", "Debrecen", "Pécs", "Szeged", "Miskolc"]
+    customer_data = []
+    for _ in range(2000):
+        name = fake.name()
+        email = fake.unique.email()
+        city = random.choice(cities)
+        customer_data.append((name, email, city))
+        try:
+            cur.execute("INSERT INTO customers (name, email, city) VALUES (%s, %s, %s)", (name, email, city))
+        except UniqueViolation:
+            print(f"A rekord már létezik az email: {email} és város: {city} kombinációval.")
+
+    # Orders beszúrása
+    order_data = []
+    for _ in range(5000):
+        customer = random.choice(customer_data)
+        name, email, city = customer
+        cur.execute("SELECT customer_id FROM customers WHERE email = %s", (email,))
+        customer_id = cur.fetchone()[0]
+        order_date = fake.date_time_this_year()
+        status = random.choice(['Pending', 'Completed', 'Shipped'])
+        cur.execute("INSERT INTO orders (customer_id, order_date, status) VALUES (%s, %s, %s)", (customer_id, order_date, status))
+        cur.execute("SELECT order_id FROM orders WHERE customer_id = %s AND order_date = %s", (customer_id, order_date))
+        order_id = cur.fetchone()[0]
+        order_data.append(order_id)
+
+        # Order Details beszúrása az aktuális rendeléshez
+        for _ in range(random.randint(1, 5)):
+            book_id = random.choice(book_data)
+            quantity = random.randint(1, 10)
+            cur.execute("INSERT INTO order_details (order_id, book_id, quantity) VALUES (%s, %s, %s)", (order_id, book_id, quantity))
+
+    # Számlák beszúrása
+    for order_id in order_data:
+        cur.execute("SELECT SUM(books.price * order_details.quantity) FROM order_details JOIN books ON order_details.book_id = books.book_id WHERE order_details.order_id = %s", (order_id,))
+        total_amount = cur.fetchone()[0]
+        if total_amount is not None and total_amount > 0:
+            cur.execute("INSERT INTO invoices (order_id, total_amount) VALUES (%s, %s)", (order_id, total_amount))
+
+    # Számlázási címek beszúrása
+    for customer in customer_data:
+        name, email, city = customer
+        cur.execute("SELECT customer_id FROM customers WHERE email = %s AND city = %s", (email, city))
+        customer_id = cur.fetchone()[0]
+        street = fake.street_address()
+        postal_code = fake.postcode()
+        cur.execute("INSERT INTO billing_addresses (customer_id, street, postal_code) VALUES (%s, %s, %s)", (customer_id, street, postal_code))
+
+
+    # Fizetési módok beszúrása
+    payment_methods = ["Credit Card", "PayPal", "Bank Transfer", "Cash on Delivery", "Crypto Payment"]
+    for method in payment_methods:
+        cur.execute("INSERT INTO payment_methods (method_name) VALUES (%s)", (method,))
+
+    # Fizetések beszúrása
+    for order_id in order_data:
+        payment_method_id = random.randint(1, len(payment_methods))
+        cur.execute("SELECT total_amount FROM invoices WHERE order_id = %s", (order_id,))
+        amount = cur.fetchone()[0]
+        if amount is not None and amount > 0:
+            payment_date = fake.date_time_this_year()
+            cur.execute("INSERT INTO payments (order_id, payment_method_id, payment_date, amount) VALUES (%s, %s, %s, %s)", (order_id, payment_method_id, payment_date, amount))
+
+    # Commit
+    conn.commit()
+
+except Exception as e:
+    print(f"Hiba történt: {e}")
+    conn.rollback()
+
+finally:
+    # Kapcsolat lezárása
+    cur.close()
+    conn.close()

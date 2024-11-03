@@ -1,0 +1,336 @@
+-- Adatbázis létrehozása
+CREATE DATABASE online_bookstore;
+
+-- Adatbázis használata
+\c online_bookstore;
+
+-- Adatbázis tervezés
+
+-- Könyvek tábla (szétbontva 3NF szerint)
+CREATE TABLE books (
+    book_id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    price NUMERIC(10, 2) NOT NULL,
+    stock_quantity INTEGER NOT NULL,
+    available BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE authors (
+    author_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE book_authors (
+    book_id INTEGER REFERENCES books(book_id),
+    author_id INTEGER REFERENCES authors(author_id),
+    PRIMARY KEY (book_id, author_id)
+);
+
+-- Vásárlók tábla (particionálva város szerint)
+CREATE TABLE customers (
+    customer_id SERIAL,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    city VARCHAR(255) NOT NULL,
+    PRIMARY KEY (customer_id, city),
+    UNIQUE (email, city)
+) PARTITION BY LIST (city);
+
+CREATE TABLE customers_budapest PARTITION OF customers FOR VALUES IN ('Budapest');
+CREATE TABLE customers_debrecen PARTITION OF customers FOR VALUES IN ('Debrecen');
+CREATE TABLE customers_other PARTITION OF customers DEFAULT;
+
+-- Rendelések tábla
+CREATE TABLE orders (
+    order_id SERIAL PRIMARY KEY,
+    customer_id INTEGER,
+    city VARCHAR(255),
+    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(50) DEFAULT 'Pending',
+    FOREIGN KEY (customer_id, city) REFERENCES customers(customer_id, city)
+);
+
+-- Rendelés részletei tábla
+CREATE TABLE order_details (
+    order_detail_id SERIAL PRIMARY KEY,
+    order_id INTEGER REFERENCES orders(order_id),
+    book_id INTEGER REFERENCES books(book_id),
+    quantity INTEGER NOT NULL
+);
+
+
+-- Számlák tábla
+CREATE TABLE invoices (
+    invoice_id SERIAL PRIMARY KEY,
+    order_id INTEGER REFERENCES orders(order_id),
+    invoice_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    total_amount NUMERIC(10, 2) NOT NULL
+);
+
+
+
+-- Számlázási cím tábla (új tábla a 3NF biztosítására)
+CREATE TABLE billing_addresses (
+    billing_address_id SERIAL PRIMARY KEY,
+    customer_id INTEGER,
+    city VARCHAR(255),
+    street VARCHAR(255) NOT NULL,
+    postal_code VARCHAR(20) NOT NULL,
+    FOREIGN KEY (customer_id, city) REFERENCES customers(customer_id, city)
+);
+
+-- Fizetési mód tábla (új tábla a fizetési mód részletezésére)
+CREATE TABLE payment_methods (
+    payment_method_id SERIAL PRIMARY KEY,
+    method_name VARCHAR(50) NOT NULL
+);
+
+-- Fizetések tábla
+CREATE TABLE payments (
+    payment_id SERIAL PRIMARY KEY,
+    order_id INTEGER REFERENCES orders(order_id),
+    payment_method_id INTEGER REFERENCES payment_methods(payment_method_id),
+    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    amount NUMERIC(10, 2) NOT NULL
+);
+
+-- Indexek létrehozása a hatékony lekérdezés érdekében
+CREATE INDEX idx_books_title ON books(title);
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+CREATE INDEX idx_order_details_order_id ON order_details(order_id);
+CREATE INDEX idx_invoices_order_id ON invoices(order_id);
+CREATE INDEX idx_payments_order_id ON payments(order_id);
+
+-- Adatok beszúrása
+INSERT INTO authors (name) VALUES
+('Author A'),
+('Author B'),
+('Author C'),
+('Author D'),
+('Author E');
+
+INSERT INTO books (title, price, stock_quantity) VALUES
+('Book A', 3500.00, 100),
+('Book B', 4500.00, 50),
+('Book C', 2500.00, 200),
+('Book D', 5000.00, 75),
+('Book E', 3000.00, 150);
+
+INSERT INTO book_authors (book_id, author_id) VALUES
+(1, 1),
+(2, 2),
+(3, 3),
+(4, 4),
+(5, 5);
+
+INSERT INTO customers (name, email, city) VALUES
+('John Doe', 'john@example.com', 'Budapest'),
+('Jane Smith', 'jane@example.com', 'Debrecen'),
+('Peter Johnson', 'peter@example.com', 'Pécs'),
+('Emily Davis', 'emily@example.com', 'Budapest'),
+('Michael Brown', 'michael@example.com', 'Debrecen');
+
+INSERT INTO billing_addresses (customer_id, city, street, postal_code) VALUES
+(1, 'Budapest', 'Main St 1', '1011'),
+(2, 'Debrecen', 'Secondary St 5', '4026'),
+(3, 'Pécs', 'Tertiary St 3', '7621'),
+(4, 'Budapest', 'Quaternary St 4', '1023'),
+(5, 'Debrecen', 'Quinary St 2', '4034');
+
+INSERT INTO payment_methods (method_name) VALUES
+('Credit Card'),
+('PayPal'),
+('Bank Transfer'),
+('Cash on Delivery'),
+('Crypto Payment');
+
+INSERT INTO orders (customer_id, city, order_date, status) VALUES
+(1, 'Budapest', '2024-10-01 10:00:00', 'Completed'),
+(2, 'Debrecen', '2024-10-02 15:30:00', 'Completed'),
+(3, 'Pécs', '2024-10-03 12:45:00', 'Pending'),
+(4, 'Budapest', '2024-10-04 14:20:00', 'Completed'),
+(5, 'Debrecen', '2024-10-05 16:00:00', 'Shipped');
+
+INSERT INTO order_details (order_id, book_id, quantity) VALUES
+(1, 1, 2),
+(1, 3, 1),
+(2, 2, 1),
+(3, 4, 3),
+(4, 5, 2),
+(5, 1, 1);
+
+INSERT INTO payments (order_id, payment_method_id, payment_date, amount) VALUES
+(1, 1, '2024-10-01 10:05:00', 10500.00),
+(2, 2, '2024-10-02 15:35:00', 4500.00),
+(4, 3, '2024-10-04 14:25:00', 6000.00),
+(5, 4, '2024-10-05 16:10:00', 3500.00);
+
+-- Lekérdezés: könyvek elérhetősége
+SELECT title, available FROM books;
+
+-- Lekérdezés: vásárlók vásárlási előzményei
+SELECT customers.name, orders.order_id, orders.order_date
+FROM customers
+JOIN orders ON customers.customer_id = orders.customer_id AND customers.city = orders.city;
+
+-- Trigger a könyv készletének frissítésére rendelés teljesülésekor
+CREATE OR REPLACE FUNCTION update_book_stock() RETURNS TRIGGER AS $$
+DECLARE
+    new_stock_quantity INTEGER;
+BEGIN
+    -- Az új készlet mennyiségének kiszámítása
+    new_stock_quantity := (SELECT stock_quantity FROM books WHERE book_id = NEW.book_id) - NEW.quantity;
+
+    UPDATE books
+    SET stock_quantity = new_stock_quantity,
+        available = CASE WHEN new_stock_quantity > 0 THEN TRUE ELSE FALSE END
+    WHERE book_id = NEW.book_id;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_stock
+AFTER INSERT ON order_details
+FOR EACH ROW
+EXECUTE FUNCTION update_book_stock();
+
+-- Tárolt eljárás számla generálására
+CREATE OR REPLACE PROCEDURE generate_invoice(order_id INTEGER) AS $$
+DECLARE
+    total NUMERIC(10, 2);
+BEGIN
+    SELECT SUM(books.price * order_details.quantity)
+    INTO total
+    FROM order_details
+    JOIN books ON order_details.book_id = books.book_id
+    WHERE order_details.order_id = order_id;
+
+    INSERT INTO invoices (order_id, total_amount) VALUES (order_id, total);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Tárolt eljárás a legjobban fogyó könyvek és legaktívabb vásárlók lekérdezésére
+CREATE OR REPLACE PROCEDURE generate_invoice(order_id INTEGER) AS $$
+DECLARE
+    total NUMERIC(10, 2);
+BEGIN
+    -- Teljes összeg kiszámítása
+    SELECT SUM(books.price * order_details.quantity)
+    INTO total
+    FROM order_details
+    JOIN books ON order_details.book_id = books.book_id
+    WHERE order_details.order_id = order_id;
+
+    -- Ellenőrizzük, hogy az összeg nem nulla, és a számla még nem létezik
+    IF total IS NOT NULL AND total > 0 THEN
+        INSERT INTO invoices (order_id, total_amount) VALUES (order_id, total);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Tárolt eljárás a legjobban fogyó könyvek lekérdezésére
+CREATE OR REPLACE PROCEDURE top_selling_books() AS $$
+BEGIN
+    SELECT book_id, SUM(quantity) AS total_sold
+    FROM order_details
+    GROUP BY book_id
+    ORDER BY total_sold DESC
+    LIMIT 10;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Tárolt eljárás a legaktívabb vásárlók lekérdezésére
+CREATE OR REPLACE PROCEDURE most_active_customers() AS $$
+BEGIN
+    SELECT customer_id, COUNT(order_id) AS total_orders
+    FROM orders
+    GROUP BY customer_id
+    ORDER BY total_orders DESC
+    LIMIT 10;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+-- Lekérdezések
+
+-- Könyvek elérhetősége
+SELECT title, stock_quantity, available FROM books;
+
+-- Vásárlók vásárlási előzményei
+SELECT customers.name, orders.order_id, orders.order_date, orders.status
+FROM customers
+JOIN orders ON customers.customer_id = orders.customer_id;
+
+-- Rendelések státusza
+SELECT order_id, customer_id, order_date, status FROM orders;
+
+
+-- Trigger a könyv készletének frissítésére
+CREATE OR REPLACE FUNCTION update_book_stock() RETURNS TRIGGER AS $$
+DECLARE
+    new_stock_quantity INTEGER;
+BEGIN
+    -- Az új készlet mennyiségének kiszámítása
+    new_stock_quantity := (SELECT stock_quantity FROM books WHERE book_id = NEW.book_id) - NEW.quantity;
+
+    UPDATE books
+    SET stock_quantity = new_stock_quantity,
+        available = CASE WHEN new_stock_quantity > 0 THEN TRUE ELSE FALSE END
+    WHERE book_id = NEW.book_id;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_stock
+AFTER INSERT ON order_details
+FOR EACH ROW
+EXECUTE FUNCTION update_book_stock();
+
+
+
+
+#########################################################################################
+-- Adatok kimentése az adatbázisból
+
+-- Könyvek kimentése
+COPY books TO '/path/to/your/export/books.csv' DELIMITER ',' CSV HEADER;
+
+-- Vásárlók kimentése
+COPY customers TO '/path/to/your/export/customers.csv' DELIMITER ',' CSV HEADER;
+
+-- Rendelések kimentése
+COPY orders TO '/path/to/your/export/orders.csv' DELIMITER ',' CSV HEADER;
+
+-- Rendelés részletei kimentése
+COPY order_details TO '/path/to/your/export/order_details.csv' DELIMITER ',' CSV HEADER;
+
+-- Számlák kimentése
+COPY invoices TO '/path/to/your/export/invoices.csv' DELIMITER ',' CSV HEADER;
+
+-- Fizetések kimentése
+COPY payments TO '/path/to/your/export/payments.csv' DELIMITER ',' CSV HEADER;
+
+
+-- Adatok visszatöltése az adatbázisba
+
+-- Könyvek visszatöltése
+COPY books FROM '/path/to/your/export/books.csv' DELIMITER ',' CSV HEADER;
+
+-- Vásárlók visszatöltése
+COPY customers FROM '/path/to/your/export/customers.csv' DELIMITER ',' CSV HEADER;
+
+-- Rendelések visszatöltése
+COPY orders FROM '/path/to/your/export/orders.csv' DELIMITER ',' CSV HEADER;
+
+-- Rendelés részletei visszatöltése
+COPY order_details FROM '/path/to/your/export/order_details.csv' DELIMITER ',' CSV HEADER;
+
+-- Számlák visszatöltése
+COPY invoices FROM '/path/to/your/export/invoices.csv' DELIMITER ',' CSV HEADER;
+
+-- Fizetések visszatöltése
+COPY payments FROM '/path/to/your/export/payments.csv' DELIMITER ',' CSV HEADER;
