@@ -297,40 +297,40 @@ EXECUTE FUNCTION update_book_stock();
 -- Adatok kimentése az adatbázisból
 
 -- Könyvek kimentése
-COPY books TO '/path/to/your/export/books.csv' DELIMITER ',' CSV HEADER;
+COPY books TO 'C:\Users\Public\Documents\books.csv' DELIMITER ',' CSV HEADER;
 
 -- Vásárlók kimentése
-COPY customers TO '/path/to/your/export/customers.csv' DELIMITER ',' CSV HEADER;
+COPY customers TO 'C:\Users\Public\Documents\customers.csv' DELIMITER ',' CSV HEADER;
 
 -- Rendelések kimentése
-COPY orders TO '/path/to/your/export/orders.csv' DELIMITER ',' CSV HEADER;
+COPY orders TO 'C:\Users\Public\Documents\orders.csv' DELIMITER ',' CSV HEADER;
 
 -- Rendelés részletei kimentése
-COPY order_details TO '/path/to/your/export/order_details.csv' DELIMITER ',' CSV HEADER;
+COPY order_details TO 'C:\Users\Public\Documents\order_details.csv' DELIMITER ',' CSV HEADER;
 
 -- Számlák kimentése
-COPY invoices TO '/path/to/your/export/invoices.csv' DELIMITER ',' CSV HEADER;
+COPY invoices TO 'C:\Users\Public\Documents\invoices.csv' DELIMITER ',' CSV HEADER;
 
 -- Fizetések kimentése
-COPY payments TO '/path/to/your/export/payments.csv' DELIMITER ',' CSV HEADER;
+COPY payments TO 'C:\Users\Public\Documents\payments.csv' DELIMITER ',' CSV HEADER;
 
 
 -- Adatok visszatöltése az adatbázisba
 
 -- Könyvek visszatöltése
-COPY books FROM '/path/to/your/export/books.csv' DELIMITER ',' CSV HEADER;
+COPY books FROM 'C:\Users\Public\Documents\books.csv' DELIMITER ',' CSV HEADER;
 
 -- Vásárlók visszatöltése
-COPY customers FROM '/path/to/your/export/customers.csv' DELIMITER ',' CSV HEADER;
+COPY customers FROM 'C:\Users\Public\Documents\customers.csv' DELIMITER ',' CSV HEADER;
 
 -- Rendelések visszatöltése
-COPY orders FROM '/path/to/your/export/orders.csv' DELIMITER ',' CSV HEADER;
+COPY orders FROM 'C:\Users\Public\Documents\orders.csv' DELIMITER ',' CSV HEADER;
 
 -- Rendelés részletei visszatöltése
-COPY order_details FROM '/path/to/your/export/order_details.csv' DELIMITER ',' CSV HEADER;
+COPY order_details FROM 'C:\Users\Public\Documents\order_details.csv' DELIMITER ',' CSV HEADER;
 
 -- Számlák visszatöltése
-COPY invoices FROM '/path/to/your/export/invoices.csv' DELIMITER ',' CSV HEADER;
+COPY invoices FROM 'C:\Users\Public\Documents\invoices.csv' DELIMITER ',' CSV HEADER;
 
 -- Fizetések visszatöltése
-COPY payments FROM '/path/to/your/export/payments.csv' DELIMITER ',' CSV HEADER;
+COPY payments FROM 'C:\Users\Public\Documents\payments.csv' DELIMITER ',' CSV HEADER;
